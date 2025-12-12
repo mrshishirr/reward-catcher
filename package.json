@@ -2,7 +2,7 @@
   "name": "reward-catcher",
   "private": true,
   "version": "0.1.0",
-  "homepage": "https://[your-github-username].github.io/reward-catcher",
+  "homepage": "https://mrshishirr.github.io/reward-catcher",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
