@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
-import { Box, Button, Typography, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import ImageIcon from '@mui/icons-material/Image';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useDropzone } from 'react-dropzone';
 
