@@ -1,73 +1,99 @@
-# React + TypeScript + Vite
+# Reward Catcher
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A browser-based receipt scanner that uses OCR to detect receipts in uploaded images, lets you review and select them, then emails them to a destination address via EmailJS.
 
-Currently, two official plugins are available:
+Live demo: https://mrshishirr.github.io/reward-catcher
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## What it does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Upload** — drag and drop (or click to select) one or more JPG/PNG images.
+2. **Detect** — each image is run through Tesseract.js OCR to determine whether it looks like a receipt.
+3. **Review** — a grid shows every uploaded image with its detection result. You can toggle individual images on or off.
+4. **Send** — confirmed receipts are emailed to the configured address using EmailJS. Your EmailJS credentials are saved in `localStorage` so you only need to enter them once.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Layer | Technology |
+|---|---|
+| UI framework | React 18 |
+| Language | TypeScript 5 |
+| Build tool | Vite 4 |
+| Component library | MUI (Material UI) v5 |
+| OCR engine | Tesseract.js 4 |
+| Email delivery | EmailJS (`@emailjs/browser`) |
+| File drag-and-drop | react-dropzone |
+| Deployment | GitHub Pages (`gh-pages`) |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Prerequisites
+
+- Node.js 18 or later
+- npm 9 or later
+- An [EmailJS](https://www.emailjs.com/) account with a service, template, and public key
+
+---
+
+## Getting started
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/mrshishirr/reward-catcher.git
+cd reward-catcher
+
+# 2. Install dependencies
+npm install
+
+# 3. Start the development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://localhost:5173 in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### EmailJS setup
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The app does not use a `.env` file — credentials are entered in the **Email** step of the UI and persisted in your browser's `localStorage`.
+
+You will need:
+- **Service ID** — from your EmailJS dashboard → Email Services
+- **Template ID** — from EmailJS → Email Templates
+- **Public Key** — from EmailJS → Account → API Keys
+- **Recipient email** — the address receipts should be sent to
+
+---
+
+## Available scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start local dev server with hot reload |
+| `npm run build` | Type-check and build for production (`dist/`) |
+| `npm run preview` | Serve the production build locally |
+| `npm run deploy` | Build and publish to GitHub Pages |
+
+---
+
+## Project structure
+
 ```
+src/
+├── components/       # UI steps: AppBar, UploadStep, ReviewStep, EmailStep
+├── services/         # receiptDetection.ts, emailService.ts
+├── utils/            # imageUtils.ts, storage.ts
+├── types/            # Shared TypeScript interfaces
+└── App.tsx           # Root component and application state
+```
+
+---
+
+## Copyright and developer info
+
+© 2024 mrshishirr. All rights reserved.
+
+GitHub: https://github.com/mrshishirr
+
+This project is provided as-is for personal use. No warranty is expressed or implied.
