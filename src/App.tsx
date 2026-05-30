@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { ThemeProvider, createTheme, CssBaseline, Container, Box, CircularProgress, Snackbar, Alert, Typography } from '@mui/material';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { ThemeProvider, createTheme, CssBaseline, Container, Box, Snackbar, Alert } from '@mui/material';
 import AppBar from './components/AppBar';
 import UploadStep from './components/UploadStep';
 import ReviewStep from './components/ReviewStep';
@@ -49,6 +49,21 @@ function App() {
     };
   });
 
+  // Log page lifecycle events to detect iOS Safari reloads
+  useEffect(() => {
+    const onVisibilityChange = () => console.log('[App] visibilitychange:', document.visibilityState, 'images:', state.images.length);
+    const onPageHide = (e: PageTransitionEvent) => console.log('[App] pagehide persisted:', e.persisted, 'images:', state.images.length);
+    const onFocus = () => console.log('[App] window focus, images:', state.images.length);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [state.images.length]);
+
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -72,44 +87,20 @@ function App() {
   }, []);
 
   const handleFilesSelected = async (files: File[]) => {
-    if (!files.length) return;
+    if (!files.length) { console.log('[App] handleFilesSelected: empty, ignoring'); return; }
+    console.log('[App] handleFilesSelected:', files.length, 'files');
 
-    updateState({
-      isProcessing: true,
-      currentStep: 'upload' // Ensure we're on the upload step
-    });
+    const newImages: ReceiptImage[] = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      file,
+      preview: URL.createObjectURL(file),
+      isReceipt: null,
+      isSelected: true,
+    }));
 
-    const newImages: ReceiptImage[] = [];
-
-    try {
-      for (const file of files) {
-        const newImage: ReceiptImage = {
-          id: Math.random().toString(36).substr(2, 9),
-          file,
-          preview: URL.createObjectURL(file),
-          isReceipt: null,
-          isSelected: true,
-        };
-        newImages.push(newImage);
-        processAndDetectReceipt(newImage);
-      }
-
-      // Add new images to state
-      setState(prev => ({
-        ...prev,
-        images: [...prev.images, ...newImages]
-      }));
-
-    } catch (error) {
-      console.error('Error processing files:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error processing files',
-        severity: 'error'
-      });
-    } finally {
-      updateState({ isProcessing: false });
-    }
+    setState(prev => { console.log('[App] setState images:', prev.images.length, '+', newImages.length); return { ...prev, images: [...prev.images, ...newImages] }; });
+    // Process serially — parallel WASM instances exhaust iOS Safari memory
+    (async () => { for (const img of newImages) await processAndDetectReceipt(img); })();
   };
 
   const handleStartReview = () => {
@@ -117,19 +108,17 @@ function App() {
   };
 
   const processAndDetectReceipt = async (image: ReceiptImage) => {
+    console.log('[App] processAndDetectReceipt start:', image.file.name);
     try {
-      // Process the image (compress, etc.)
-      const { file: processedFile, previewUrl } = await processImageFile(image.file);
-
-      // Detect if it's a receipt
-      const { isReceipt: isReceiptResult } = await isReceipt(processedFile);
-
-      // Update state with both the processed file and receipt detection result
+      const { file: processedFile } = await processImageFile(image.file);
+      const previewUrl = URL.createObjectURL(image.file);
+      const { isReceipt: isReceiptResult } = await isReceipt(image.file);
+      console.log('[App] processAndDetectReceipt done:', image.file.name, isReceiptResult);
       setState(prev => ({
         ...prev,
         images: prev.images.map(img =>
             img.id === image.id
-                ? { ...img, file: processedFile, preview: previewUrl, isReceipt: isReceiptResult }
+                ? { ...img, file: processedFile, preview: previewUrl, isReceipt: isReceiptResult, isSelected: isReceiptResult }
                 : img
         ),
       }));
@@ -209,13 +198,16 @@ function App() {
     }
   };
 
-  // Clean up object URLs when component unmounts
+  // Clean up object URLs only when images are removed/reset
+  const prevImagesRef = useRef<ReceiptImage[]>([]);
   useEffect(() => {
-    return () => {
-      state.images.forEach(image => {
-        URL.revokeObjectURL(image.preview);
-      });
-    };
+    const prev = prevImagesRef.current;
+    const current = state.images;
+    // Revoke URLs for images that are no longer in state
+    prev.forEach(img => {
+      if (!current.find(i => i.id === img.id)) URL.revokeObjectURL(img.preview);
+    });
+    prevImagesRef.current = current;
   }, [state.images]);
 
   const selectedCount = state.images.filter(img => img.isSelected).length;
@@ -237,28 +229,13 @@ function App() {
                 flexDirection: 'column',
               }}
           >
-            {state.isProcessing && state.currentStep === 'upload' ? (
-                <Box sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 1,
-                  gap: 2
-                }}>
-                  <CircularProgress size={60} thickness={4} />
-                  <Typography variant="h6" color="textSecondary">
-                    Processing images...
-                  </Typography>
-                </Box>
-            ) : (
-                <>
+            <>
                   {state.currentStep === 'upload' && (
                       <UploadStep
                           onFilesSelected={handleFilesSelected}
                           isProcessing={state.isProcessing}
                           onStartReview={handleStartReview}
-                          selectedCount={state.images.length}
+                          images={state.images}
                       />
                   )}
 
@@ -284,7 +261,6 @@ function App() {
                       />
                   )}
                 </>
-            )}
           </Container>
         </Box>
 

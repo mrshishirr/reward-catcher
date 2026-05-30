@@ -78,11 +78,9 @@ const EmailStep: React.FC<EmailStepProps> = ({
           } 
           arrow
           placement="left"
-          onOpen={() => setShowHelp(true)}
-          onClose={() => setShowHelp(false)}
           open={showHelp}
         >
-          <IconButton>
+          <IconButton onClick={() => setShowHelp(v => !v)}>
             <InfoOutlinedIcon />
           </IconButton>
         </Tooltip>

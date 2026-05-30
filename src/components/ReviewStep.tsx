@@ -41,6 +41,13 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
     receiptCount: images.filter(img => img.isReceipt === true).length
   }), [images]);
 
+  // Receipts first, then pending (null), then non-receipts
+  const sortedImages = useMemo(() =>
+    [...images].sort((a, b) => {
+      const rank = (img: ReceiptImage) => img.isReceipt === true ? 0 : img.isReceipt === null ? 1 : 2;
+      return rank(a) - rank(b);
+    }), [images]);
+
   const handleImageClick = (id: string) => {
     setSelectedId(selectedId === id ? null : id);
   };
@@ -148,7 +155,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
       </Box>
 
       <Grid container spacing={2}>
-        {images.map((image) => (
+        {sortedImages.map((image) => (
           <Grid item={true} xs={12} sm={6} md={4} key={image.id}>
             <Card 
               variant="outlined"
