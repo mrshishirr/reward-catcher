@@ -3,13 +3,24 @@ import { createWorker } from 'tesseract.js';
 // Common receipt-related keywords to identify receipts
 const RECEIPT_KEYWORDS = [
   'total', 'subtotal', 'tax', 'change', 'cash', 'visa', 'mastercard',
-  'debit', 'credit', 'receipt', 'invoice', 'change', 'amount', 'paid',
-  'thank you', 'change due', 'balance', 'tender', 'card', 'cashier',
-  'date', 'time', 'item', 'qty', 'quantity', 'price', 'store', 'shop'
+  'debit', 'credit', 'receipt', 'invoice', 'amount', 'paid',
+  'thank you', 'balance', 'tender', 'card', 'cashier',
+  'date', 'time', 'item', 'qty', 'quantity', 'price', 'store', 'shop',
+  'sale', 'purchase', 'order', 'payment', 'approved', 'transaction',
+  'change due', 'net', 'gross', 'discount', 'savings', 'member',
+  'ref', 'auth', 'terminal', 'merchant', 'customer', 'register',
+];
+
+// Regex patterns that strongly indicate a receipt regardless of keywords
+const RECEIPT_PATTERNS = [
+  /\$\s*\d+\.\d{2}/,          // dollar amounts like $12.99
+  /\d+\.\d{2}\s*(usd|aud|cad|gbp|eur)?/i, // decimal prices
+  /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/,   // dates like 05/29/2024
+  /\d{1,2}:\d{2}\s*(am|pm)?/i,            // times like 3:45 PM
 ];
 
 // Minimum confidence threshold for receipt detection (0-1)
-const MIN_CONFIDENCE = 0.3;
+const MIN_CONFIDENCE = 0.15;
 
 /**
  * Processes an image to determine if it contains a receipt
@@ -17,39 +28,30 @@ const MIN_CONFIDENCE = 0.3;
  * @returns Promise that resolves to a boolean indicating if the image is a receipt
  */
 export const isReceipt = async (imageFile: File): Promise<{ isReceipt: boolean; confidence: number }> => {
+  let worker;
   try {
-    // Create and configure worker
-    const worker = await createWorker();
-    // await worker.load();
-    
-    // Process the image
+    worker = await createWorker('eng', 1, {
+      workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+      langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
+      logger: (m) => console.log('[Tesseract]', m),
+    });
+
     const { data } = await worker.recognize(imageFile);
-    console.log('Processed receipt detection for image');
-    
-    // Extract text and convert to lowercase for case-insensitive matching
+    console.log('[Receipt] OCR text:', data.text);
+
     const text = data.text.toLowerCase();
-    
-    // Count how many receipt keywords are found in the text
-    const matches = RECEIPT_KEYWORDS.filter(keyword => 
-      text.includes(keyword)
-    ).length;
-    
-    // Calculate a confidence score (0-1)
-    const confidence = Math.min(1, matches / 10);
-    
-    // Clean up
-    await worker.terminate();
-    
-    return {
-      isReceipt: confidence >= MIN_CONFIDENCE,
-      confidence
-    };
+    const keywordMatches = RECEIPT_KEYWORDS.filter(keyword => text.includes(keyword)).length;
+    const patternMatches = RECEIPT_PATTERNS.filter(p => p.test(data.text)).length;
+    const confidence = Math.min(1, (keywordMatches + patternMatches * 3) / 10);
+    console.log('[Receipt] keywords:', keywordMatches, 'patterns:', patternMatches, 'confidence:', confidence);
+
+    return { isReceipt: confidence >= MIN_CONFIDENCE, confidence };
   } catch (error) {
-    console.error('Error processing image:', error);
-    return {
-      isReceipt: false,
-      confidence: 0,
-    };
+    console.error('[Receipt] Error:', error);
+    return { isReceipt: false, confidence: 0 };
+  } finally {
+    await worker?.terminate();
   }
 };
 
